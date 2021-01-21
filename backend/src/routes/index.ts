@@ -66,6 +66,11 @@ routes.get('/polls/:id', (request, response) => {
 routes.post('/polls/:id/:option', (request, response) => {
     const { id, option } = request.params;
     const index = polls.findIndex( poll => poll.id === id);
+
+    if (index < 0){
+        return response.status(400).json({ error: "Poll does not exist!"})
+    }
+
     const poll = polls[index];
 
     if (!poll.isOpen) {
@@ -80,6 +85,11 @@ routes.post('/polls/:id/:option', (request, response) => {
 routes.put('/polls/:id', (request, response) => {
     const { id } = request.params;
     const index = polls.findIndex( poll => poll.id === id);
+
+    if (index < 0){
+        return response.status(400).json({ error: "Poll does not exist!"})
+    }
+
     const poll = polls[index];
 
     poll.isOpen = false;
@@ -90,6 +100,10 @@ routes.put('/polls/:id', (request, response) => {
 routes.delete('/polls/:id', (request, response) => {
     const { id } = request.params;
     const index = polls.findIndex( poll => poll.id === id);
+
+    if (index < 0){
+        return response.status(400).json({ error: "Poll does not exist!"})
+    }
 
     polls.splice(index, 1);
 
