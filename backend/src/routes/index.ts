@@ -1,4 +1,4 @@
-import { Router, response } from 'express';
+import { Router } from 'express';
 import shortid from 'shortid';
 
 const routes = Router(); 
