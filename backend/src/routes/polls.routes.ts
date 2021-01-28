@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { getCustomRepository, getRepository } from 'typeorm';
 import shortid from 'shortid';
 
+import AppError from '../errors/AppError';
+
 import Poll from '../models/Poll';
 import PollsRepository from '../repositories/PollsRepository';
 import CreatePollService from '../services/CreatePollService';
@@ -10,6 +12,8 @@ import VoteForOptionService from '../services/VoteForOption';
 import ClosePollService from '../services/ClosePollService';
 import DeletePollService from '../services/DeletePollService';
 import OptionsRepository from '../repositories/OptionsRepository';
+
+import ensureAuthenticated from '../middlewares/ensureAuthenticated';
 
 
 const pollsRouter = Router(); 
@@ -23,130 +27,107 @@ async function closePoll(id: string) {
     await pollsRepository.update(id, { isOpen: false });
 }
 
-pollsRouter.post('/', async (request, response) => {
-    try{
-        const { title, optionsNames, durationTime, userId} = request.body;
+pollsRouter.post('/', ensureAuthenticated, async (request, response) => {
+    const { title, optionsNames, durationTime } = request.body;
+    const { id: userId } = request.user;
 
-        const createPoll = new CreatePollService();
-        const createOption = new CreateOptionService();
+    const createPoll = new CreatePollService();
+    const createOption = new CreateOptionService();
 
-        const poll = await createPoll.execute({
-            id: shortid.generate(),
-            isOpen: true,
-            title,
-            durationTime,
-            startTime: Date.now(), 
-            endTime: Date.now() + durationTime * 1000 ,
-            userId
-        });
+    const poll = await createPoll.execute({
+        id: shortid.generate(),
+        isOpen: true,
+        title,
+        durationTime,
+        startTime: Date.now(), 
+        endTime: Date.now() + durationTime * 1000 ,
+        userId
+    });
 
 
-        const createOptions = async () => {
-            return Promise.all(
-                await optionsNames.map( async( { name }: optionName) => {
-                    const option = await createOption.execute({ 
-                        name, 
-                        pollId: poll.id 
-                    })
-                return {...option};
-            }))
-        }
-        
-
-        const options = await createOptions();
-        
-        const res = {...poll, options}
-        setTimeout(closePoll, durationTime*1000, poll.id);
-
-        return response.json(res);
-    } catch(err) {
-        return response.status(400).json({error: err.message})
+    const createOptions = async () => {
+        return Promise.all(
+            await optionsNames.map( async( { name }: optionName) => {
+                const option = await createOption.execute({ 
+                    name, 
+                    pollId: poll.id 
+                })
+            return {...option};
+        }))
     }
+    
+
+    const options = await createOptions();
+    
+    const pollRes = {...poll, options}
+    setTimeout(closePoll, durationTime*1000, poll.id);
+
+    return response.json(pollRes);
 });
 
 pollsRouter.get('/:id', async (request, response) => {
-    try {
-        const { id } = request.params;
+    const { id } = request.params;
 
-        const pollsRepository = getCustomRepository(PollsRepository);
-        const optionsRepository = getCustomRepository(OptionsRepository);
+    const pollsRepository = getCustomRepository(PollsRepository);
+    const optionsRepository = getCustomRepository(OptionsRepository);
 
-        const poll = await pollsRepository.findById(id);
-        const options = await optionsRepository.find({ where: { pollId: id } })
+    const poll = await pollsRepository.findById(id);
+    const options = await optionsRepository.find({ where: { pollId: id } })
 
-        if(poll === null){
-            throw new Error('This poll does not exist');
-        }
-
-        const res = {...poll, options};
-
-        return response.json(res);
-    } catch(err) {
-        return response.status(400).json({ error: err.message})
+    if(poll === null){
+        throw new AppError('This poll does not exist');
     }
+
+    const pollRes = {...poll, options};
+
+    return response.json(pollRes);
 });
 
 pollsRouter.get('/', async (request, response) => {
+    const pollsRepository = getCustomRepository(PollsRepository);
+    const polls = await pollsRepository.find();
 
-    const date = new Date(1611780508405);
-    console.log(date.toString());
-
-    try {
-        const pollsRepository = getCustomRepository(PollsRepository);
-        const polls = await pollsRepository.find();
-
-        if(polls === null){
-            throw new Error("There isn't any poll yet!");
-        }
-
-        return response.json(polls);
-    } catch(err) {
-        return response.status(400).json({ error: err.message})
+    if(polls === null){
+        throw new AppError("There isn't any poll yet!");
     }
+
+    return response.json(polls);
 });
 
 pollsRouter.post('/:id/vote/:option', async (request, response) => {
-    try{
-        const { id, option } = request.params;
+    const { id, option } = request.params;
 
-        const voteForOption = new VoteForOptionService();
+    const voteForOption = new VoteForOptionService();
 
-        const votedOption = await voteForOption.execute({
-            pollId: id,
-            index: Number(option),
-        })
+    const votedOption = await voteForOption.execute({
+        pollId: id,
+        index: Number(option),
+    })
 
 
-        return response.json(votedOption);
-    } catch(err){
-        return response.status(400).json({error: err.message});
-    }
+    return response.json(votedOption);
 });
 
-pollsRouter.put('/:id', async (request, response) => {
-    try {
-        const { id } = request.params;
-        const closePoll = new ClosePollService();
+pollsRouter.put('/:id', ensureAuthenticated, async (request, response) => {
+    const { id } = request.params;
+    const { id: userId } = request.user;
 
-        const closedPoll = await closePoll.execute({ id });
+    const closePoll = new ClosePollService();
 
-        return response.json(closedPoll);
-    } catch(err) {
-        return response.status(400).json({ error: err.message });
-    }
+    const closedPoll = await closePoll.execute({ id, userId });
+
+    return response.json(closedPoll);
 });
 
-pollsRouter.delete('/:id', async (request, response) => {
-    try {
-        const { id } = request.params;
-        const DeletePoll = new DeletePollService();
+pollsRouter.delete('/:id', ensureAuthenticated, async (request, response) => {
+    const { id } = request.params;
+    const { id: userId } = request.user;
 
-        await DeletePoll.execute({ id })
+    const DeletePoll = new DeletePollService();
 
-        return response.status(200).json();
-    } catch(err) {
-        return response.status(400).json({ error: err.message });
-    }
+    await DeletePoll.execute({ id, userId })
+
+    return response.status(200).json();
 });
 
 export default pollsRouter;

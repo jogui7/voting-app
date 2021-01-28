@@ -1,4 +1,5 @@
 import { getCustomRepository } from 'typeorm';
+import AppError from '../errors/AppError';
 
 import PollsRepository from '../repositories/PollsRepository';
 import OptionsRepository from '../repositories/OptionsRepository';
@@ -25,15 +26,15 @@ class VoteForOptionService {
         const option = await optionsRepository.findByIndex(pollId, index);
 
         if(!poll) {
-            throw new Error('Poll does not exist!');
+            throw new AppError('Poll does not exist!');
         }
 
         if(!option) {
-            throw new Error('Option does not exist!');
+            throw new AppError('Option does not exist!');
         } 
 
         if(!poll.isOpen) {
-            throw new Error('Poll is already closed!');
+            throw new AppError('Poll is already closed!');
         }
         
         await optionsRepository.increment(option, 'votes', 1);

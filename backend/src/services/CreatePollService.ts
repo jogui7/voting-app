@@ -1,4 +1,5 @@
 import { getCustomRepository, getRepository } from 'typeorm';
+import AppError from '../errors/AppError';
 
 import User from '../models/User';
 import Poll from '../models/Poll';
@@ -11,7 +12,7 @@ interface Request {
     durationTime: number ,
     startTime: number,
     endTime: number,
-    userId: string
+    userId: string;
 }
 
 class CreatePollService {
@@ -22,17 +23,17 @@ class CreatePollService {
         durationTime, 
         startTime, 
         endTime, 
-        userId 
+        userId
     }: Request): Promise<Poll> {
         const pollsRepository = getCustomRepository(PollsRepository);
         const usersRepository = getRepository(User);
 
-        const checkUserExists = await usersRepository.findOne({
+        const user = await usersRepository.findOne({
             where:{ id: userId },
         })
 
-        if(!checkUserExists) {
-            throw new Error('User does not exist!');
+        if(!user) {
+            throw new AppError('Only authenticaded users can create polls!', 401);
         } 
 
         const poll = pollsRepository.create({
