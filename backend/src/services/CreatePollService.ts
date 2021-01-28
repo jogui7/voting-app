@@ -1,5 +1,6 @@
-import { getCustomRepository } from 'typeorm';
+import { getCustomRepository, getRepository } from 'typeorm';
 
+import User from '../models/User';
 import Poll from '../models/Poll';
 import PollsRepository from '../repositories/PollsRepository';
 
@@ -24,6 +25,15 @@ class CreatePollService {
         userId 
     }: Request): Promise<Poll> {
         const pollsRepository = getCustomRepository(PollsRepository);
+        const usersRepository = getRepository(User);
+
+        const checkUserExists = await usersRepository.findOne({
+            where:{ id: userId },
+        })
+
+        if(!checkUserExists) {
+            throw new Error('User does not exist!');
+        } 
 
         const poll = pollsRepository.create({
             id,
