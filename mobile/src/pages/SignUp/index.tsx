@@ -11,7 +11,10 @@ import Icon from 'react-native-vector-icons/Feather';
 import { Form } from '@unform/mobile';
 import { FormHandles } from '@unform/core';
 import { useNavigation } from '@react-navigation/native';
+
 import * as Yup from 'yup';
+
+import api from '../../services/api';
 
 import getValidationErrors from '../../utils/getValidationErrors';
 
@@ -43,43 +46,49 @@ const SignUp: React.FC = () => {
 	const passwordInputRef = useRef<passwordInputData>(null);
 	const confirmPasswordInputRef = useRef<TextInput>(null);
 
-	const handleSignUp = useCallback(async (data: SignUpFormData) => {
-		try {
-			formRef.current?.setErrors({});
+	const handleSignUp = useCallback(
+		async (data: SignUpFormData) => {
+			try {
+				formRef.current?.setErrors({});
 
-			const schema = Yup.object().shape({
-				username: Yup.string().required('Username is required'),
-				password: Yup.string().min(6, 'Password min lenght is 6'),
-				confirmPassword: Yup.string().oneOf(
-					[Yup.ref('password')],
-					'Passwords do not match',
-				),
-			});
+				const schema = Yup.object().shape({
+					username: Yup.string().required('Username is required'),
+					password: Yup.string().min(6, 'Password min lenght is 6'),
+					confirmPassword: Yup.string().oneOf(
+						[Yup.ref('password')],
+						'Passwords do not match',
+					),
+				});
 
-			await schema.validate(data, {
-				abortEarly: false,
-			});
+				await schema.validate(data, {
+					abortEarly: false,
+				});
 
-			// await api.post('/users', data);
+				await api.post('/users', data);
 
-			// history.push('/');
+				Alert.alert(
+					'Account Created',
+					'You can now start using the app!',
+				);
 
-			Alert.alert('Success', 'Your account has been created!');
-		} catch (err) {
-			if (err instanceof Yup.ValidationError) {
-				const errors = getValidationErrors(err);
+				navigation.navigate('SignIn');
+			} catch (err) {
+				if (err instanceof Yup.ValidationError) {
+					const errors = getValidationErrors(err);
 
-				formRef.current?.setErrors(errors);
+					formRef.current?.setErrors(errors);
 
-				return;
+					return;
+				}
+
+				Alert.alert(
+					'Error',
+					'Occurred an error while trying to create your account, please try again',
+				);
 			}
-
-			Alert.alert(
-				'Error',
-				'Occurred an error while trying to create your account, please try again',
-			);
-		}
-	}, []);
+		},
+		[navigation],
+	);
 
 	return (
 		<>

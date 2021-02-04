@@ -15,7 +15,6 @@ import OptionsRepository from '../repositories/OptionsRepository';
 
 import ensureAuthenticated from '../middlewares/ensureAuthenticated';
 
-
 const pollsRouter = Router(); 
 
 interface optionName {
